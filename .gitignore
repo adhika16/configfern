@@ -1,0 +1,21 @@
+## .NET Core
+bin/
+obj/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.vs/
+.vscode/
+*.swp
+*.*~
+project.lock.json
+.DS_Store
+*.pyc
+
+## Configuration files
+appsettings.*.json
+!appsettings.example.json
+
+## Environment variables
+.env 
