@@ -20,7 +20,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task SaveConfigurationAsync(string environment, Dictionary<string, object> configuration)
     {
-        var processedConfig = ProcessConfigurationForSaving(configuration);
+        var processedConfig = await ProcessConfigurationForSaving(environment, configuration);
         var configJson = JsonConvert.SerializeObject(processedConfig, Formatting.Indented);
         var filePath = Path.Combine(_configPath, $"appsettings.{environment}.json");
         await File.WriteAllTextAsync(filePath, configJson);
@@ -34,7 +34,7 @@ public class ConfigurationService : IConfigurationService
 
         var configJson = await File.ReadAllTextAsync(filePath);
         var configuration = JsonConvert.DeserializeObject<Dictionary<string, object>>(configJson);
-        return ProcessConfigurationForLoading(configuration ?? new Dictionary<string, object>());
+        return ProcessConfigurationForLoading(configuration ?? new Dictionary<string, object>(), decryptValues: true);
     }
 
     public async Task<Dictionary<string, Dictionary<string, object>>> CompareEnvironmentsAsync(string env1, string env2)
@@ -63,84 +63,136 @@ public class ConfigurationService : IConfigurationService
 
     public string EncryptValue(string value)
     {
-        if (string.IsNullOrEmpty(value) || value.StartsWith(ENCRYPTED_PREFIX))
-            return value;
+        try
+        {
+            if (string.IsNullOrEmpty(value) || value.StartsWith(ENCRYPTED_PREFIX))
+                return value;
 
-        using var aes = Aes.Create();
-        aes.Key = _encryptionKey;
-        aes.GenerateIV();
+            using var aes = Aes.Create();
+            aes.Key = _encryptionKey;
+            aes.GenerateIV();
+            aes.Padding = PaddingMode.PKCS7;
 
-        using var encryptor = aes.CreateEncryptor();
-        var valueBytes = Encoding.UTF8.GetBytes(value);
-        var encryptedBytes = encryptor.TransformFinalBlock(valueBytes, 0, valueBytes.Length);
+            using var encryptor = aes.CreateEncryptor();
+            var valueBytes = Encoding.UTF8.GetBytes(value);
+            var encryptedBytes = encryptor.TransformFinalBlock(valueBytes, 0, valueBytes.Length);
 
-        var resultBytes = new byte[aes.IV.Length + encryptedBytes.Length];
-        Buffer.BlockCopy(aes.IV, 0, resultBytes, 0, aes.IV.Length);
-        Buffer.BlockCopy(encryptedBytes, 0, resultBytes, aes.IV.Length, encryptedBytes.Length);
+            var resultBytes = new byte[aes.IV.Length + encryptedBytes.Length];
+            Buffer.BlockCopy(aes.IV, 0, resultBytes, 0, aes.IV.Length);
+            Buffer.BlockCopy(encryptedBytes, 0, resultBytes, aes.IV.Length, encryptedBytes.Length);
 
-        return ENCRYPTED_PREFIX + Convert.ToBase64String(resultBytes);
+            return ENCRYPTED_PREFIX + Convert.ToBase64String(resultBytes);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to encrypt value: {ex.Message}");
+        }
     }
 
     public string DecryptValue(string encryptedValue)
     {
-        if (string.IsNullOrEmpty(encryptedValue) || !encryptedValue.StartsWith(ENCRYPTED_PREFIX))
-            return encryptedValue;
+        try
+        {
+            if (string.IsNullOrEmpty(encryptedValue) || !encryptedValue.StartsWith(ENCRYPTED_PREFIX))
+                return encryptedValue;
 
-        var base64Value = encryptedValue.Substring(ENCRYPTED_PREFIX.Length);
-        var fullBytes = Convert.FromBase64String(base64Value);
-        var iv = new byte[16];
-        var encryptedBytes = new byte[fullBytes.Length - 16];
+            var base64Value = encryptedValue.Substring(ENCRYPTED_PREFIX.Length);
+            var fullBytes = Convert.FromBase64String(base64Value);
 
-        Buffer.BlockCopy(fullBytes, 0, iv, 0, 16);
-        Buffer.BlockCopy(fullBytes, 16, encryptedBytes, 0, encryptedBytes.Length);
+            if (fullBytes.Length < 16) // IV size
+                throw new InvalidOperationException("Invalid encrypted value format");
 
-        using var aes = Aes.Create();
-        aes.Key = _encryptionKey;
-        aes.IV = iv;
+            var iv = new byte[16];
+            var encryptedBytes = new byte[fullBytes.Length - 16];
 
-        using var decryptor = aes.CreateDecryptor();
-        var decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
-        return Encoding.UTF8.GetString(decryptedBytes);
+            Buffer.BlockCopy(fullBytes, 0, iv, 0, 16);
+            Buffer.BlockCopy(fullBytes, 16, encryptedBytes, 0, encryptedBytes.Length);
+
+            using var aes = Aes.Create();
+            aes.Key = _encryptionKey;
+            aes.IV = iv;
+            aes.Padding = PaddingMode.PKCS7;
+
+            using var decryptor = aes.CreateDecryptor();
+            var decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
+            return Encoding.UTF8.GetString(decryptedBytes);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to decrypt value: {ex.Message}. Please ensure the encryption key is correct and the value is properly encrypted.");
+        }
     }
 
-    private Dictionary<string, object> ProcessConfigurationForSaving(Dictionary<string, object> configuration)
+    private async Task<Dictionary<string, object>> ProcessConfigurationForSaving(string environment, Dictionary<string, object> configuration)
+    {
+        // First, load the existing configuration to get the current encrypted state
+        var filePath = Path.Combine(_configPath, $"appsettings.{environment}.json");
+        Dictionary<string, object> existingConfig = new();
+        
+        if (File.Exists(filePath))
+        {
+            var configJson = await File.ReadAllTextAsync(filePath);
+            existingConfig = JsonConvert.DeserializeObject<Dictionary<string, object>>(configJson) ?? new Dictionary<string, object>();
+            existingConfig = ProcessConfigurationForLoading(existingConfig, decryptValues: false);
+        }
+
+        return MergeConfigurations(configuration, existingConfig);
+    }
+
+    private Dictionary<string, object> MergeConfigurations(Dictionary<string, object> newConfig, Dictionary<string, object> existingConfig)
     {
         var result = new Dictionary<string, object>();
-        foreach (var (key, value) in configuration)
+        foreach (var (key, value) in newConfig)
         {
-            result[key] = ProcessValueForSaving(value);
+            if (value is Dictionary<string, object> newDict)
+            {
+                var existingDict = existingConfig.ContainsKey(key) && existingConfig[key] is Dictionary<string, object> dict
+                    ? dict
+                    : new Dictionary<string, object>();
+                result[key] = MergeConfigurations(newDict, existingDict);
+            }
+            else if (value is string strValue)
+            {
+                // If the value is already encrypted (from a new addition), preserve it
+                if (strValue.StartsWith(ENCRYPTED_PREFIX))
+                {
+                    result[key] = strValue;
+                }
+                // If there's an existing encrypted value for this key, preserve the encryption
+                else if (existingConfig.ContainsKey(key) && existingConfig[key] is string existingStr && existingStr.StartsWith(ENCRYPTED_PREFIX))
+                {
+                    result[key] = EncryptValue(strValue);
+                }
+                else
+                {
+                    result[key] = strValue;
+                }
+            }
+            else
+            {
+                result[key] = value;
+            }
         }
         return result;
     }
 
-    private object ProcessValueForSaving(object value)
-    {
-        return value switch
-        {
-            Dictionary<string, object> dict => ProcessConfigurationForSaving(dict),
-            string str => str,
-            JObject jObj => ProcessConfigurationForSaving(jObj.ToObject<Dictionary<string, object>>()!),
-            _ => value
-        };
-    }
-
-    private Dictionary<string, object> ProcessConfigurationForLoading(Dictionary<string, object> configuration)
+    private Dictionary<string, object> ProcessConfigurationForLoading(Dictionary<string, object> configuration, bool decryptValues = true)
     {
         var result = new Dictionary<string, object>();
         foreach (var (key, value) in configuration)
         {
-            result[key] = ProcessValueForLoading(value);
+            result[key] = ProcessValueForLoading(value, decryptValues);
         }
         return result;
     }
 
-    private object ProcessValueForLoading(object value)
+    private object ProcessValueForLoading(object value, bool decryptValues)
     {
         return value switch
         {
-            Dictionary<string, object> dict => ProcessConfigurationForLoading(dict),
-            JObject jObj => ProcessConfigurationForLoading(jObj.ToObject<Dictionary<string, object>>()!),
-            string str => DecryptValue(str),
+            Dictionary<string, object> dict => ProcessConfigurationForLoading(dict, decryptValues),
+            JObject jObj => ProcessConfigurationForLoading(jObj.ToObject<Dictionary<string, object>>()!, decryptValues),
+            string str => decryptValues ? DecryptValue(str) : str,
             _ => value
         };
     }

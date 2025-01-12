@@ -57,7 +57,7 @@ compareCommand.AddOption(env2Option);
 
 // Validate command
 var validateCommand = new Command("validate", "Validate configuration entries");
-var validateEnvOption = new Option<string>("--env", "Environment to validate") { IsRequired = true };
+var validateEnvOption = new Option<string>("--env", () => "", "Environment (e.g., dev, staging, prod). Defaults to appsettings.json if not specified");
 validateCommand.AddOption(validateEnvOption);
 
 // Set up handlers

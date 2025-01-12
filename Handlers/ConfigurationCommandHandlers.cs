@@ -31,18 +31,15 @@ public class ConfigurationCommandHandlers
             }
 
             var finalKey = keyParts[^1];
-            if (currentDict.ContainsKey(finalKey))
-            {
-                Console.WriteLine($"Error: Key '{key}' already exists in environment '{env}'");
-                return;
-            }
-
+            var isUpdate = currentDict.ContainsKey(finalKey);
             currentDict[finalKey] = encrypted ? _configService.EncryptValue(value) : value;
 
             if (_configService.ValidateConfiguration(config))
             {
                 await _configService.SaveConfigurationAsync(env, config);
-                Console.WriteLine($"Added configuration entry '{key}' to environment '{env}'");
+                Console.WriteLine(isUpdate
+                    ? $"Updated configuration entry '{key}' in environment '{env}'"
+                    : $"Added configuration entry '{key}' to environment '{env}'");
             }
             else
             {
