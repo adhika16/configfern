@@ -4,20 +4,24 @@ using ConfigFern.Models;
 using ConfigFern.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using DotNetEnv;
 
-var configuration = new ConfigurationBuilder()
-    .AddEnvironmentVariables()
-    .Build();
-
-var envConfig = new EnvironmentConfig();
-configuration.Bind(envConfig);
-envConfig.Validate();
+// Load environment variables from .env file
+Env.Load();
+Env.TraversePath().Load();
 
 var services = new ServiceCollection()
     .AddSingleton<IConfigurationService>(sp => 
-        new ConfigurationService(
+    {
+        var envConfig = new EnvironmentConfig 
+        { 
+            ConfigEncryptionKey = Env.GetString("CONFIG_ENCRYPTION_KEY") 
+        };
+        envConfig.Validate();
+        return new ConfigurationService(
             Directory.GetCurrentDirectory(),
-            envConfig.ConfigEncryptionKey))
+            envConfig.ConfigEncryptionKey);
+    })
     .AddSingleton<ConfigurationCommandHandlers>()
     .BuildServiceProvider();
 
