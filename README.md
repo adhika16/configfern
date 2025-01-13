@@ -11,6 +11,7 @@ ConfigFern is a .NET CLI tool that aims to assist in managing application config
 - Encrypt sensitive configuration values
 - Validate configuration files
 - Compare configurations between environments
+- Decrypt configuration files for deployment
 - Standard .NET configuration format support
 
 ## Installation
@@ -81,6 +82,19 @@ Key: AppSettings:Features:EnableCache
 dotnet run validate --env dev
 ```
 
+### Decrypting Configuration for Deployment
+
+```bash
+# Decrypt configuration for an environment
+dotnet run decrypt --env prod
+
+# Decrypt with custom output path
+dotnet run decrypt --env prod --output "./deploy/appsettings.json"
+
+# Force decrypt (for CI/CD pipelines)
+dotnet run decrypt --env prod --force
+```
+
 ## Configuration Structure
 
 ConfigFern uses the standard .NET configuration format:
@@ -115,6 +129,7 @@ ConfigFern uses the standard .NET configuration format:
 - Encrypted values are prefixed with "ENC:" in the configuration file
 - Encryption key should be stored securely and not committed to version control
 - Set the encryption key using the `CONFIG_ENCRYPTION_KEY` environment variable
+- Decryption creates a separate file with plain-text values
 
 ## Best Practices
 
@@ -125,6 +140,15 @@ ConfigFern uses the standard .NET configuration format:
 5. Regularly validate configurations across environments
 6. Compare environments before deployments
 7. Keep encryption keys secure and separate from the configuration files
+8. Delete decrypted configuration files immediately after use
+9. Never commit decrypted configuration files to version control
+
+## Deployment Workflow
+
+1. Encrypt sensitive values during development
+2. Use `validate` to ensure configuration integrity
+3. Use `decrypt` command in secure deployment environments
+4. Immediately delete the decrypted configuration file after use
 
 ## License
 
