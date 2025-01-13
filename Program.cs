@@ -60,6 +60,15 @@ var validateCommand = new Command("validate", "Validate configuration entries");
 var validateEnvOption = new Option<string>("--env", () => "", "Environment (e.g., dev, staging, prod). Defaults to appsettings.json if not specified");
 validateCommand.AddOption(validateEnvOption);
 
+// Decrypt command
+var decryptCommand = new Command("decrypt", "Decrypt all encrypted values in a configuration file and save to a new file (Warning: creates a new file with decrypted values)");
+var decryptEnvOption = new Option<string>("--env", "Environment (e.g., dev, staging, prod)") { IsRequired = true };
+var outputOption = new Option<string>("--output", () => "", "Output file path. If not specified, will use {original_name}.decrypted.json");
+var forceOption = new Option<bool>("--force", "Force decryption without confirmation");
+decryptCommand.AddOption(decryptEnvOption);
+decryptCommand.AddOption(outputOption);
+decryptCommand.AddOption(forceOption);
+
 // Set up handlers
 addCommand.SetHandler(
     (key, value, env, encrypted, desc) => handlers.HandleAddAsync(key, value, env, encrypted, desc),
@@ -77,9 +86,14 @@ validateCommand.SetHandler(
     (env) => handlers.HandleValidateAsync(env),
     validateEnvOption);
 
+decryptCommand.SetHandler(
+    (env, output, force) => handlers.HandleDecryptAsync(env, output, force),
+    decryptEnvOption, outputOption, forceOption);
+
 rootCommand.AddCommand(addCommand);
 rootCommand.AddCommand(listCommand);
 rootCommand.AddCommand(compareCommand);
 rootCommand.AddCommand(validateCommand);
+rootCommand.AddCommand(decryptCommand);
 
 await rootCommand.InvokeAsync(args); 
