@@ -16,15 +16,76 @@ ConfigFern is a .NET CLI tool that aims to assist in managing application config
 
 ## Installation
 
+### Global Installation
+
+You can install ConfigFern as a global .NET CLI tool using:
+
+```bash
+dotnet tool install --global ConfigFern
+```
+
+To update to the latest version:
+
+```bash
+dotnet tool update --global ConfigFern
+```
+
+To uninstall:
+
+```bash
+dotnet tool uninstall --global ConfigFern
+```
+
+### Local Installation
+
+#### Prerequisites
+- .NET SDK 8.0
+
+#### Installation Steps
+
 1. Clone the repository
 2. Build the project:
-   ```bash
-   dotnet build
-   ```
-3. Set up the encryption key (optional):
-   ```bash
-   export CONFIG_ENCRYPTION_KEY="your-secure-key-here"
-   ```
+```bash
+# Restore dependencies
+dotnet restore
+
+# Generate a NuGet package
+dotnet pack -c Release
+
+# Create a local tool manifest (if not already exists)
+dotnet new tool-manifest
+
+# Install from the generated package
+dotnet tool install --local ConfigFern --add-source ./bin/Release
+```
+
+#### Running the Local Tool
+
+After local installation, you can run the tool using:
+```bash
+# Using dotnet tool
+dotnet configfern [command]
+
+# Or via the local tool path
+dotnet tool run configfern [command]
+```
+
+#### Troubleshooting Local Installation
+- Ensure you have the correct .NET SDK version
+- Check that you're in the project root directory
+- Verify that all dependencies are correctly restored
+- Use `dotnet restore` to resolve any dependency issues
+
+## Environment Setup
+
+Set up the encryption key:
+```bash
+# Linux/macOS
+export CONFIG_ENCRYPTION_KEY="your-secure-key-here"
+
+# Windows (PowerShell)
+$env:CONFIG_ENCRYPTION_KEY="your-secure-key-here"
+```
 
 ## Usage
 
@@ -32,67 +93,44 @@ ConfigFern is a .NET CLI tool that aims to assist in managing application config
 
 ```bash
 # Add a simple configuration
-dotnet run add --key "AppSettings:ApplicationName" --value "MyApp" --env "dev"
+configfern add --key "AppSettings:ApplicationName" --value "MyApp" --env "dev"
 
 # Add an encrypted connection string
-dotnet run add --key "ConnectionStrings:DefaultConnection" --value "Server=localhost;Database=mydb" --env "dev" --encrypted
+configfern add --key "ConnectionStrings:DefaultConnection" --value "Server=localhost;Database=mydb" --env "dev" --encrypted
 
 # Add a nested configuration
-dotnet run add --key "AppSettings:Features:EnableCache" --value "true" --env "prod"
+configfern add --key "AppSettings:Features:EnableCache" --value "true" --env "prod"
 ```
 
 ### Listing Configuration Entries
 
 ```bash
-dotnet run list --env dev
-```
-
-Example output:
-```
-Configuration entries for environment 'dev':
-ConnectionStrings:
-  DefaultConnection: Server=localhost;Database=mydb
-AppSettings:
-  ApplicationName: MyApp
-  Features:
-    EnableCache: true
+configfern list --env dev
 ```
 
 ### Comparing Environments
 
 ```bash
-dotnet run compare --env1 dev --env2 prod
-```
-
-Example output:
-```
-Differences between environments 'dev' and 'prod':
-Key: ConnectionStrings:DefaultConnection
-- dev: Server=localhost;Database=mydb
-- prod: Server=prod-server;Database=mydb
-
-Key: AppSettings:Features:EnableCache
-- dev: true
-- prod: false
+configfern compare --env1 dev --env2 prod
 ```
 
 ### Validating Configuration
 
 ```bash
-dotnet run validate --env dev
+configfern validate --env dev
 ```
 
 ### Decrypting Configuration for Deployment
 
 ```bash
 # Decrypt configuration for an environment
-dotnet run decrypt --env prod
+configfern decrypt --env prod
 
 # Decrypt with custom output path
-dotnet run decrypt --env prod --output "./deploy/appsettings.json"
+configfern decrypt --env prod --output "./deploy/appsettings.json"
 
 # Force decrypt (for CI/CD pipelines)
-dotnet run decrypt --env prod --force
+configfern decrypt --env prod --force
 ```
 
 ## Configuration Structure

@@ -5,6 +5,19 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    
+    <!-- Package Information -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>configfern</ToolCommandName>
+    <PackageId>ConfigFern</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Adhika P.</Authors>
+    <Description>A .NET CLI tool for managing application configurations across various environments with encryption support.</Description>
+    <PackageTags>configuration;encryption;dotnet-tool;cli</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/adhika16/configfern</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/adhika16/configfern</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +29,10 @@
     <PackageReference Include="Spectre.Console" Version="0.49.1" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <ItemGroup>
