@@ -6,6 +6,12 @@ on:
     # branches: [ main ]  # Commented out for future use
   # pull_request:
   #   branches: [ main ]  # Commented out for future use
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -41,7 +47,7 @@ jobs:
         
   publish:
     needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
