@@ -72,5 +72,6 @@ jobs:
       with:
         files: "*.nupkg"
         generate_release_notes: true
+        tag_name: ${{ github.event.inputs.version || github.ref_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
