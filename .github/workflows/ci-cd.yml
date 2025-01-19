@@ -35,11 +35,11 @@ jobs:
       run: dotnet test --no-build --verbosity normal --configuration Release
       
     - name: Pack
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       run: dotnet pack --no-build --configuration Release -o nupkg
       
     - name: Upload artifact
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       uses: actions/upload-artifact@v4
       with:
         name: nupkg
